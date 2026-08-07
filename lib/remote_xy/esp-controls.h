@@ -2,7 +2,7 @@
 // Created on: 2025-10-04
 // Author: Sebastien Cabana
 // Description: ESP32 control state management and data decoding interface.
-//              Handles F710 controller data received through ESP-NOW protocol.
+//              Handles controller data received through RemoteXY.
 
 #ifndef ESP_CONTROLS_H
 #define ESP_CONTROLS_H
@@ -11,29 +11,22 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
-#include <unistd.h>
-#include <debug_options.h>
 #include <Arduino.h>
 
 // Digital Button IDs
-#define ESP_BUTTON_A       0
-#define ESP_BUTTON_B       1
-#define ESP_BUTTON_X       2
-#define ESP_BUTTON_Y       3
-#define ESP_BUTTON_LB      4
-#define ESP_BUTTON_RB      5
-#define ESP_BUTTON_BACK    6
-#define ESP_BUTTON_START   7
-#define ESP_BUTTON_HOME    8
-#define ESP_BUTTON_LSTICK  9
-#define ESP_BUTTON_RSTICK  10
+enum esp_button_id {
+    ESP_BUTTON_GREEN,
+    ESP_BUTTON_ORANGE,
+    ESP_BUTTON_BLUE,
+    ESP_BUTTON_RED
+};
+typedef enum esp_button_id ESP_Button_ID;
 
 // Analog Button IDs (Axis)
-#define ESP_AXIS_LT        2
-#define ESP_AXIS_RT        5
-#define ESP_AXIS_L         1
-#define ESP_AXIS_R         3
-#define ESP_AXIS_C         6
+enum esp_axis_id {
+    ESP_JOYSTICK
+};
+typedef enum esp_axis_id ESP_Axis_ID;
 
 // Enums
 enum esp_direction {
@@ -68,33 +61,22 @@ struct esp_axis {
 typedef struct esp_axis ESP_Axis;
 
 // Extern variables for each button
-extern ESP_Button esp_button_a;
-extern ESP_Button esp_button_b;
-extern ESP_Button esp_button_x;
-extern ESP_Button esp_button_y;
-extern ESP_Button esp_button_lb;
-extern ESP_Button esp_button_rb;
-extern ESP_Button esp_button_back;
-extern ESP_Button esp_button_start;
-extern ESP_Button esp_button_home;
-extern ESP_Button esp_button_lstick;
-extern ESP_Button esp_button_rstick;
+extern ESP_Button esp_button_green;
+extern ESP_Button esp_button_orange;
+extern ESP_Button esp_button_blue;
+extern ESP_Button esp_button_red;
 
 // Extern variables for each axis
-extern ESP_Axis esp_axis_lstick;
-extern ESP_Axis esp_axis_rstick;
-extern ESP_Axis esp_axis_cross;
-extern ESP_Axis esp_axis_lt;
-extern ESP_Axis esp_axis_rt;
+extern ESP_Axis esp_joystick;
 
 // Global Constants
-#define ESP_BUTTON_DEBOUNCE_MS 50  // Debounce delay in milliseconds
+#define ESP_BUTTON_DEBOUNCE_MS  50      // Debounce delay in milliseconds
+#define ESP_PRINT_CONTROLS      1       // Set to 1 to enable printing of control states for debugging
 
 // Global variables
 
 // Function prototypes
 std::string esp_get_direction_str(ESP_Direction dir);   // Get string representation of direction
-void esp_unpack_data(const uint32_t* data);             // Unpack controller data from 32 bits array
 void update_button(ESP_Button* button, bool input);     // Update button state with toggle logic
 void esp_print_states(void);                            // Print current states of all buttons and axes
 
