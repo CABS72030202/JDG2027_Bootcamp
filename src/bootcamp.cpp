@@ -1,7 +1,7 @@
-// main.cpp
+// bootcamp.cpp
 // Created on: 2026-08-08
 // Author: Sebastien Cabana
-// Description: 
+// Description: Main sketch for controlling simple robot with RemoteXY
 
 // Includes
 #include <Arduino.h>
