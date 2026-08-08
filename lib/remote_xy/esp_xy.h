@@ -11,10 +11,11 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
-#include "esp-controls.h"
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
+#include "esp-controls.h"
+#include "debug_options.h"
 
 // Global Constants
 #define XY_ANAL_SHIFT_VAL           0         // Shift value for analog inputs

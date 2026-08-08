@@ -9,11 +9,10 @@
 
 // Includes
 #include <Arduino.h>
-#include <pins.h>
+#include "pins.h"
+#include "debug_options.h"
 
 // Global Constants
-#define MOTOR_DEBUG                         0                   // Enable debug output for motor control
-
 #define MAX_SPEED                           3                   // Maximum speed levels
 const int SPEED_MULTIPLIERS[MAX_SPEED] =    {60, 80, 100};      // Percentage for speed levels
 

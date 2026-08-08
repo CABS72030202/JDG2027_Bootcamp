@@ -20,8 +20,6 @@ using namespace std;
 #define CONTINUOUS_SERVO_CCW_VALUE      180
 #define CONTINUOUS_SERVO_STOP_VALUE     95
 
-#define SERVO_DEBUG 0
-
 // Struct Definitions
 struct servo_pos {
     int id;

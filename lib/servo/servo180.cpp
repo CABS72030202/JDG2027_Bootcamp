@@ -38,14 +38,6 @@ int Servo180::get_servo_num(int pin) {
             return 1;
         case SERVO2_PIN:
             return 2;
-        case SERVO3_PIN:
-            return 3;
-        case SERVO4_PIN:
-            return 4;
-        case SERVO5_PIN:
-            return 5;
-        case SERVO6_PIN:
-            return 6;    
         default:
             return -1;
     }

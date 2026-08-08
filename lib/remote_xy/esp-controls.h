@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <string>
 #include <Arduino.h>
+#include "debug_options.h"
 
 // Digital Button IDs
 enum esp_button_id {
@@ -71,7 +72,6 @@ extern ESP_Axis esp_joystick;
 
 // Global Constants
 #define ESP_BUTTON_DEBOUNCE_MS  50      // Debounce delay in milliseconds
-#define ESP_PRINT_CONTROLS      1       // Set to 1 to enable printing of control states for debugging
 
 // Global variables
 
