@@ -8,9 +8,8 @@
 #define SERVO_H
 
 // Includes
-#include <pins.h>
-#include <esp-controls.h>
-#include <debug_options.h>
+#include "pins.h"
+#include "esp-controls.h"
 #include <ESP32Servo.h>
 #include <vector>
 
@@ -20,6 +19,8 @@ using namespace std;
 #define CONTINUOUS_SERVO_CW_VALUE       0
 #define CONTINUOUS_SERVO_CCW_VALUE      180
 #define CONTINUOUS_SERVO_STOP_VALUE     95
+
+#define SERVO_DEBUG 0
 
 // Struct Definitions
 struct servo_pos {

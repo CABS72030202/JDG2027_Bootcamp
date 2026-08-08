@@ -9,6 +9,7 @@
 #include "esp-controls.h"
 #include "pins.h"
 #include "motor.h"
+#include "servo.h"
 
 // Calibrated Speed Levels
 #define BASE_SPEED          255
@@ -16,10 +17,15 @@
 #define LEFT_CORRECTION     1.0
 #define RIGHT_CORRECTION    1.0
 
+// Servo180 Configurations (Pin, Min, Max, Default, Step)
+Servo180 servo1 (SERVO1_PIN, 0, 180, 90, 5);    
+Servo180 servo2 (SERVO2_PIN, 0, 180, 90, 5);
+
 void setup() {
     xy_init();
     setup_dc_motors(BASE_SPEED, MINIMUM_SPEED, LEFT_CORRECTION, RIGHT_CORRECTION);
-
+    servo1.begin();
+    servo2.begin();
 }
 
 void loop() {
@@ -29,4 +35,8 @@ void loop() {
 
     // Update motor speeds based on esp_controls state
     set_dc_speed(esp_get_axis(ESP_JOYSTICK)->direction, esp_get_axis(ESP_JOYSTICK)->zone);
+
+    // Update servo positions based on button states
+    servo1.process_commands(esp_get_button(ESP_BUTTON_GREEN), esp_get_button(ESP_BUTTON_ORANGE));
+    servo2.process_commands(esp_get_button(ESP_BUTTON_BLUE), esp_get_button(ESP_BUTTON_RED));
 }
