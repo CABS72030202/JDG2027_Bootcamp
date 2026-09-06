@@ -61,15 +61,6 @@ struct esp_axis {
 };
 typedef struct esp_axis ESP_Axis;
 
-// Extern variables for each button
-extern ESP_Button esp_button_green;
-extern ESP_Button esp_button_orange;
-extern ESP_Button esp_button_blue;
-extern ESP_Button esp_button_red;
-
-// Extern variables for each axis
-extern ESP_Axis esp_joystick;
-
 // Global Constants
 #define ESP_BUTTON_DEBOUNCE_MS  50      // Debounce delay in milliseconds
 

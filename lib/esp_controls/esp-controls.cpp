@@ -7,13 +7,13 @@
 #include "esp-controls.h"
 
 // Extern variables for each button
-ESP_Button esp_button_green   = {ESP_BUTTON_GREEN, 0, 0, 0, 0};
-ESP_Button esp_button_orange  = {ESP_BUTTON_ORANGE, 0, 0, 0, 0};
-ESP_Button esp_button_blue    = {ESP_BUTTON_BLUE, 0, 0, 0, 0};
-ESP_Button esp_button_red     = {ESP_BUTTON_RED, 0, 0, 0, 0};
+static ESP_Button esp_button_green   = {ESP_BUTTON_GREEN, 0, 0, 0, 0};
+static ESP_Button esp_button_orange  = {ESP_BUTTON_ORANGE, 0, 0, 0, 0};
+static ESP_Button esp_button_blue    = {ESP_BUTTON_BLUE, 0, 0, 0, 0};
+static ESP_Button esp_button_red     = {ESP_BUTTON_RED, 0, 0, 0, 0};
 
 // Extern variables for each axis
-ESP_Axis esp_joystick         = {ESP_JOYSTICK, 0, ESP_NONE, nullptr};
+static ESP_Axis esp_joystick         = {ESP_JOYSTICK, 0, ESP_NONE, nullptr};
 
 std::string esp_get_direction_str(ESP_Direction dir) {
 	switch (dir) {
