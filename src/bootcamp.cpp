@@ -18,8 +18,8 @@
 #define RIGHT_CORRECTION    1.0
 
 // Servo180 Configurations (Pin, Min, Max, Default, Step)
-Servo180 servo1 (SERVO1_PIN, 0, 180, 90, 5);    
-Servo180 servo2 (SERVO2_PIN, 0, 180, 90, 5);
+Servo180 servo1 (SERVO1_PIN, 0, 60, 0, 5);    
+Servo180 servo2 (SERVO2_PIN, 0, 100, 100, 5);
 
 void setup() {
     xy_init();
@@ -37,6 +37,6 @@ void loop() {
     set_dc_speed(esp_get_axis(ESP_JOYSTICK)->direction, esp_get_axis(ESP_JOYSTICK)->zone);
 
     // Update servo positions based on button states
-    servo1.process_commands(esp_get_button(ESP_BUTTON_GREEN), esp_get_button(ESP_BUTTON_ORANGE));
-    servo2.process_commands(esp_get_button(ESP_BUTTON_BLUE), esp_get_button(ESP_BUTTON_RED));
+    servo1.process_commands(esp_get_button(ESP_BUTTON_ORANGE), esp_get_button(ESP_BUTTON_GREEN));
+    servo2.process_commands(esp_get_button(ESP_BUTTON_RED), esp_get_button(ESP_BUTTON_BLUE));
 }

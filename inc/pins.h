@@ -15,13 +15,15 @@
 #define RESERVED10_PIN      11      // Internal flash
 
 // DC motor pins
-#define MOTOR_A_IN1_PIN     25
-#define MOTOR_A_IN2_PIN     26
-#define MOTOR_B_IN1_PIN     27
-#define MOTOR_B_IN2_PIN     32
+#define MOTOR_A_IN1_PIN     32
+#define MOTOR_A_IN2_PIN     25
+#define MOTOR_A_EN_PIN      21
+#define MOTOR_B_IN1_PIN     26
+#define MOTOR_B_IN2_PIN     27
+#define MOTOR_B_EN_PIN      19
 
 // Servo pins
-#define SERVO1_PIN          33
-#define SERVO2_PIN          13
+#define SERVO1_PIN          15
+#define SERVO2_PIN          4
 
 #endif // PINS_H
