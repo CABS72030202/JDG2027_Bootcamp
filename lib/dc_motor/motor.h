@@ -1,38 +1,100 @@
 // motor.h
-// Created on: 2025-10-28
+// Created on: 2026-09-20
 // Author: Sebastien Cabana
-// Description: Universal motor control interface supporting multiple motor types.
-//              Handles DC motors, mecanum wheels, and stepper motor operations.
+// Description: DC motor control interface for an L298N (or similar) H-bridge driver.
+//              IN1/IN2 are digital direction pins; EN is a PWM speed pin.
 
 #ifndef MOTOR_H
 #define MOTOR_H
 
-// Includes
 #include <Arduino.h>
 #include "pins.h"
 #include "debug_options.h"
 
-// Global Constants
-#define MAX_SPEED                           3                   // Maximum speed levels
-const int SPEED_MULTIPLIERS[MAX_SPEED] =    {60, 80, 100};      // Percentage for speed levels
+// Tunable constants for the motor subsystem.
+struct MotorConfig {
+    static constexpr int MAX_SPEED_LEVEL = 3;
+    static constexpr int SPEED_MULTIPLIERS[MAX_SPEED_LEVEL] = {60, 80, 100};
 
-// Motor Correction Factors
-extern int BASE_SPEED;                  // Base analog speed for motors (0-255)
-extern int MINIMUM_SPEED;               // Minimum analog speed to overcome motor stall (0-255)
-extern float LEFT_CORRECTION;           // Correction factor for left motor (0.1-2.0)
-extern float RIGHT_CORRECTION;          // Correction factor for right motor (0.1-2.0)
+    static constexpr int   DEFAULT_BASE_SPEED   = 200;
+    static constexpr int   DEFAULT_MIN_SPEED    = 150;
+    static constexpr float DEFAULT_LEFT_FACTOR  = 1.0f;
+    static constexpr float DEFAULT_RIGHT_FACTOR = 1.0f;
 
-// Global Variables
-extern int current_speed;               // Current speed level index (0 to MAX_SPEED-1)
-extern int current_direction;           // Current direction code (0 to 8)
-extern int left_speed;                  // Current speed for the left motor (analog value)
-extern int right_speed;                 // Current speed for the right motor (analog value)
+    static constexpr int   PWM_MAX_VALUE    = 255;
+    static constexpr float TURN_SPEED_RATIO = 0.5f;
 
-// Function Prototypes
-void setup_dc_motors(int base, int min, int left_correction, int right_correction);     // Initialize DC motor control pins
-void set_dc_speed(int direction, int speed_level);                                      // Set DC motor speed based on direction and speed level
-void set_dc_motor_output(int left_speed, int right_speed);                              // Apply speed values to DC motors
-void stop_dc_motors();                                                                  // Stop both DC motors
-void bound_analog_values(int* left_speed, int* right_speed);                            // Ensure speed values are within valid range
+    static constexpr int   MIN_VALID_SPEED  = 0;
+    static constexpr int   MAX_VALID_SPEED  = 255;
+    static constexpr float MIN_VALID_FACTOR = 0.1f;
+    static constexpr float MAX_VALID_FACTOR = 2.0f;
+};
+
+enum class Direction {
+    STOP        = 0,
+    NORTH       = 1,
+    NORTH_EAST  = 2,
+    EAST        = 3,
+    SOUTH_EAST  = 4,
+    SOUTH       = 5,
+    SOUTH_WEST  = 6,
+    WEST        = 7,
+    NORTH_WEST  = 8
+};
+
+// One DC motor driven by an L298N-style H-bridge.
+// IN1/IN2 set direction (digital); EN sets speed (PWM).
+class DCMotor {
+public:
+    DCMotor(int in1Pin, int in2Pin, int enPin);
+
+    void begin();
+    void setSpeed(int speed);
+    void stop();
+
+private:
+    int  in1Pin_;
+    int  in2Pin_;
+    int  enPin_;
+    bool initialized_;
+};
+
+// Coordinates left + right DC motors for a differential drive base.
+class MotorController {
+public:
+    MotorController(DCMotor& left, DCMotor& right);
+
+    void configure(int   baseSpeed       = MotorConfig::DEFAULT_BASE_SPEED,
+                   int   minSpeed        = MotorConfig::DEFAULT_MIN_SPEED,
+                   float leftCorrection  = MotorConfig::DEFAULT_LEFT_FACTOR,
+                   float rightCorrection = MotorConfig::DEFAULT_RIGHT_FACTOR);
+
+    void begin();
+    void drive(Direction direction, int speedLevel);
+    void stop();
+
+    int getLeftSpeed()  const { return leftSpeed_; }
+    int getRightSpeed() const { return rightSpeed_; }
+
+private:
+    DCMotor& left_;
+    DCMotor& right_;
+
+    int   baseSpeed_;
+    int   minSpeed_;
+    float leftCorrection_;
+    float rightCorrection_;
+    int   leftSpeed_;
+    int   rightSpeed_;
+    bool  initialized_;
+
+    static int   clampSpeed(int speed);
+    static int   clampSpeedLevel(int level);
+    static float clampCorrection(float factor);
+
+    void computeWheelSpeeds(Direction direction, int& left, int& right) const;
+    int  applyCorrectionAndClamp(int speed, float correction) const;
+    int  applyMinimumSpeed(int speed) const;
+};
 
 #endif // MOTOR_H

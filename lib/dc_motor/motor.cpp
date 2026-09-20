@@ -1,140 +1,160 @@
 // motor.cpp
-// Created on: 2025-10-28
+// Created on: 2026-09-20
 // Author: Sebastien Cabana
-// Description: Implementation of motor control functions for various motor types.
-//              Provides unified interface for DC, mecanum and stepper motor control.
+// Description: Implementation of DC motor control for an L298N (or similar)
+//              H-bridge driver, including a differential drive controller.
 
 #include <motor.h>
 
-// Motor Correction Factors
-int BASE_SPEED = 200;                // Default base analog speed for motors
-int MINIMUM_SPEED = 150;             // Default minimum analog speed to overcome motor stall
-float LEFT_CORRECTION = 1.0;         // Default correction factor for left motor
-float RIGHT_CORRECTION = 1.0;        // Default correction factor for right motor
+constexpr int MotorConfig::SPEED_MULTIPLIERS[MotorConfig::MAX_SPEED_LEVEL];
 
-// Global Variables
-int current_speed = 0;               // Current speed level index (0 to MAX_SPEED-1)
-int current_direction = 0;           // Current direction code (0 to 8)
-int left_speed = 0;                  // Current speed for the left motor (analog value)
-int right_speed = 0;                 // Current speed for the right motor (analog value)
+// ============================================================================
+// DCMotor
+// ============================================================================
 
-void setup_dc_motors(int base, int min, int left_correction, int right_correction) {
-    // Setup motor correction factors
-    BASE_SPEED = base;
-    MINIMUM_SPEED = min;
-    LEFT_CORRECTION = left_correction;
-    RIGHT_CORRECTION = right_correction;
+DCMotor::DCMotor(int in1Pin, int in2Pin, int enPin)
+    : in1Pin_(in1Pin), in2Pin_(in2Pin), enPin_(enPin), initialized_(false) {}
 
-    // Initialize DC motor control pins
-    pinMode(MOTOR_A_IN1_PIN, OUTPUT);
-    pinMode(MOTOR_A_IN2_PIN, OUTPUT);
-    pinMode(MOTOR_B_IN1_PIN, OUTPUT);
-    pinMode(MOTOR_B_IN2_PIN, OUTPUT);
+void DCMotor::begin() {
+    pinMode(in1Pin_, OUTPUT);
+    pinMode(in2Pin_, OUTPUT);
+    pinMode(enPin_,  OUTPUT);
+    stop();
+    initialized_ = true;
 }
 
-void set_dc_speed(int direction, int speed_level) {
-    int speed_percent = SPEED_MULTIPLIERS[speed_level - 1];
-    int base_speed = (BASE_SPEED * speed_percent) / 100;
-    int left_base = base_speed * LEFT_CORRECTION;
-    int right_base = base_speed * RIGHT_CORRECTION;
+void DCMotor::setSpeed(int speed) {
+    if (!initialized_) return;
 
-    if(MOTOR_DEBUG) {
-        fprintf(stderr, "Direction: %d, Speed Level: %d | ", direction, speed_level);
-        fprintf(stderr, "Base: %d, Left: %d, Right: %d\n", base_speed, left_base, right_base);
+    if (speed >  MotorConfig::PWM_MAX_VALUE) speed =  MotorConfig::PWM_MAX_VALUE;
+    if (speed < -MotorConfig::PWM_MAX_VALUE) speed = -MotorConfig::PWM_MAX_VALUE;
+
+    digitalWrite(in1Pin_, speed > 0 ? HIGH : LOW);
+    digitalWrite(in2Pin_, speed > 0 ? LOW  : HIGH);
+    analogWrite(enPin_, abs(speed));
+}
+
+void DCMotor::stop() {
+    digitalWrite(in1Pin_, LOW);
+    digitalWrite(in2Pin_, LOW);
+    analogWrite(enPin_, 0);
+}
+
+// ============================================================================
+// MotorController
+// ============================================================================
+
+MotorController::MotorController(DCMotor& left, DCMotor& right)
+    : left_(left), right_(right),
+      baseSpeed_(MotorConfig::DEFAULT_BASE_SPEED),
+      minSpeed_(MotorConfig::DEFAULT_MIN_SPEED),
+      leftCorrection_(MotorConfig::DEFAULT_LEFT_FACTOR),
+      rightCorrection_(MotorConfig::DEFAULT_RIGHT_FACTOR),
+      leftSpeed_(0), rightSpeed_(0), initialized_(false) {}
+
+void MotorController::configure(int baseSpeed, int minSpeed,
+                                float leftCorrection, float rightCorrection) {
+    baseSpeed_       = clampSpeed(baseSpeed);
+    minSpeed_        = clampSpeed(minSpeed);
+    leftCorrection_  = clampCorrection(leftCorrection);
+    rightCorrection_ = clampCorrection(rightCorrection);
+
+    if (minSpeed_ > baseSpeed_) minSpeed_ = baseSpeed_;
+}
+
+void MotorController::begin() {
+    left_.begin();
+    right_.begin();
+    stop();
+    initialized_ = true;
+}
+
+void MotorController::drive(Direction direction, int speedLevel) {
+    if (!initialized_) {
+        stop();
+        return;
     }
 
-    // Calculate speed for each motor based on direction and current speed
+    speedLevel = clampSpeedLevel(speedLevel);
+
+    int rawLeft = 0, rawRight = 0;
+    computeWheelSpeeds(direction, rawLeft, rawRight);
+
+    const int percent = MotorConfig::SPEED_MULTIPLIERS[speedLevel - 1];
+    rawLeft  = (rawLeft  * percent) / 100;
+    rawRight = (rawRight * percent) / 100;
+
+    leftSpeed_  = applyMinimumSpeed(applyCorrectionAndClamp(rawLeft,  leftCorrection_));
+    rightSpeed_ = applyMinimumSpeed(applyCorrectionAndClamp(rawRight, rightCorrection_));
+
+    if (MOTOR_DEBUG) {
+        fprintf(stderr, "[Motor] Dir=%d Lvl=%d | L=%d R=%d\n",
+                static_cast<int>(direction), speedLevel,
+                leftSpeed_, rightSpeed_);
+    }
+
+    left_.setSpeed(leftSpeed_);
+    right_.setSpeed(rightSpeed_);
+}
+
+void MotorController::stop() {
+    left_.stop();
+    right_.stop();
+    leftSpeed_  = 0;
+    rightSpeed_ = 0;
+}
+
+int MotorController::clampSpeed(int speed) {
+    if (speed < MotorConfig::MIN_VALID_SPEED) return MotorConfig::MIN_VALID_SPEED;
+    if (speed > MotorConfig::MAX_VALID_SPEED) return MotorConfig::MAX_VALID_SPEED;
+    return speed;
+}
+
+int MotorController::clampSpeedLevel(int level) {
+    if (level < 1) return 1;
+    if (level > MotorConfig::MAX_SPEED_LEVEL) return MotorConfig::MAX_SPEED_LEVEL;
+    return level;
+}
+
+float MotorController::clampCorrection(float factor) {
+    if (factor < MotorConfig::MIN_VALID_FACTOR) return MotorConfig::MIN_VALID_FACTOR;
+    if (factor > MotorConfig::MAX_VALID_FACTOR) return MotorConfig::MAX_VALID_FACTOR;
+    return factor;
+}
+
+void MotorController::computeWheelSpeeds(Direction direction,
+                                         int& left, int& right) const {
+    const int base   = baseSpeed_;
+    const int turnIn = static_cast<int>(base * MotorConfig::TURN_SPEED_RATIO);
+
     switch (direction) {
-        case 1: // North
-            left_speed = left_base;
-            right_speed = right_base;
-            break;
-        case 2: // North East
-            left_speed = left_base * 0.5;       // Reduce left speed for turning
-            right_speed = right_base;
-            break;
-        case 8: // North West
-            left_speed = left_base;
-            right_speed = right_base * 0.5;     // Reduce right speed for turning
-            break;
-        case 5: // South
-            left_speed = -left_base;
-            right_speed = -right_base;
-            break;
-        case 4: // South East
-            left_speed = -left_base * 0.5;      // Reduce left speed for turning
-            right_speed = -right_base;
-            break;
-        case 6: // South West
-            left_speed = -left_base;
-            right_speed = -right_base * 0.5;    // Reduce right speed for turning
-            break;
-        case 3: // East
-            left_speed = -left_base;
-            right_speed = right_base;
-            break;
-        case 7: // West
-            left_speed = left_base;
-            right_speed = -right_base;
-            break;
-        default: // Stop
-            left_speed = 0;
-            right_speed = 0;
-            break;
+        case Direction::NORTH:       left =  base;    right =  base;    break;
+        case Direction::NORTH_EAST:  left =  turnIn;  right =  base;    break;
+        case Direction::NORTH_WEST:  left =  base;    right =  turnIn;  break;
+        case Direction::SOUTH:       left = -base;    right = -base;    break;
+        case Direction::SOUTH_EAST:  left = -turnIn;  right = -base;    break;
+        case Direction::SOUTH_WEST:  left = -base;    right = -turnIn;  break;
+        case Direction::EAST:        left = -base;    right =  base;    break;
+        case Direction::WEST:        left =  base;    right = -base;    break;
+        case Direction::STOP:
+        default:                     left =  0;       right =  0;       break;
     }
-
-    bound_analog_values(&left_speed, &right_speed);
-    set_dc_motor_output(left_speed, right_speed);
 }
 
-void set_dc_motor_output(int left_speed, int right_speed) {
-    // Set motor speeds (handle direction with sign)
-    if (left_speed >= 0) {
-        analogWrite(MOTOR_A_IN1_PIN, left_speed);
-        analogWrite(MOTOR_A_IN2_PIN, 0);
-    } else {
-        analogWrite(MOTOR_A_IN1_PIN, 0);
-        analogWrite(MOTOR_A_IN2_PIN, -left_speed);
-    }
+int MotorController::applyCorrectionAndClamp(int speed, float correction) const {
+    int corrected = static_cast<int>(speed * correction);
 
-    if (right_speed >= 0) {
-        analogWrite(MOTOR_B_IN1_PIN, right_speed);
-        analogWrite(MOTOR_B_IN2_PIN, 0);
-    } else {
-        analogWrite(MOTOR_B_IN1_PIN, 0);
-        analogWrite(MOTOR_B_IN2_PIN, -right_speed);
-    }
-    // Add very small delay
-    delay(2);
+    if (corrected >  MotorConfig::PWM_MAX_VALUE) corrected =  MotorConfig::PWM_MAX_VALUE;
+    if (corrected < -MotorConfig::PWM_MAX_VALUE) corrected = -MotorConfig::PWM_MAX_VALUE;
+
+    return corrected;
 }
 
-void stop_dc_motors() {
-    // Stop both DC motors
-    analogWrite(MOTOR_A_IN1_PIN, 0);
-    analogWrite(MOTOR_A_IN2_PIN, 0);
-    analogWrite(MOTOR_B_IN1_PIN, 0);
-    analogWrite(MOTOR_B_IN2_PIN, 0);
-}
+int MotorController::applyMinimumSpeed(int speed) const {
+    if (speed == 0) return 0;
 
-void bound_analog_values(int* left_speed, int* right_speed) {
-    // Reduce values exceeding ±255
-    if (*left_speed > 255)
-        *left_speed = 255;
-    else if (*left_speed < -255) 
-        *left_speed = -255;
+    if (speed > 0 && speed < minSpeed_)  return  minSpeed_;
+    if (speed < 0 && speed > -minSpeed_) return -minSpeed_;
 
-    if (*right_speed > 255)
-        *right_speed = 255;
-    else if (*right_speed < -255)
-        *right_speed = -255;
-
-    // Increase values below minimum threshold to avoid stall
-    if (*left_speed > 0 && *left_speed < MINIMUM_SPEED)
-        *left_speed = MINIMUM_SPEED;
-    else if (*left_speed < 0 && *left_speed > -MINIMUM_SPEED)
-        *left_speed = -MINIMUM_SPEED;
-    if (*right_speed > 0 && *right_speed < MINIMUM_SPEED)
-        *right_speed = MINIMUM_SPEED;
-    else if (*right_speed < 0 && *right_speed > -MINIMUM_SPEED)
-        *right_speed = -MINIMUM_SPEED;
+    return speed;
 }
