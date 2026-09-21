@@ -1,5 +1,5 @@
 // motor.h
-// Created on: 2026-09-20
+// Created on: 2025-10-28
 // Author: Sebastien Cabana
 // Description: DC motor control interface for an L298N (or similar) H-bridge driver.
 //              IN1/IN2 are digital direction pins; EN is a PWM speed pin.
@@ -11,18 +11,24 @@
 #include "pins.h"
 #include "debug_options.h"
 
+// A joystick command in polar form.
+//   magnitude ∈ [0, 1]  : 0 = stopped, 1 = full speed
+//   angle     ∈ (-π, π] : 0 = forward, ±π/2 = turn, ±π = reverse
+struct DriveCommand {
+    float magnitude;
+    float angle;
+};
+
 // Tunable constants for the motor subsystem.
 struct MotorConfig {
-    static constexpr int MAX_SPEED_LEVEL = 3;
-    static constexpr int SPEED_MULTIPLIERS[MAX_SPEED_LEVEL] = {60, 80, 100};
+    MotorConfig() = delete;
 
     static constexpr int   DEFAULT_BASE_SPEED   = 200;
     static constexpr int   DEFAULT_MIN_SPEED    = 150;
     static constexpr float DEFAULT_LEFT_FACTOR  = 1.0f;
     static constexpr float DEFAULT_RIGHT_FACTOR = 1.0f;
 
-    static constexpr int   PWM_MAX_VALUE    = 255;
-    static constexpr float TURN_SPEED_RATIO = 0.5f;
+    static constexpr int   PWM_MAX_VALUE = 255;
 
     static constexpr int   MIN_VALID_SPEED  = 0;
     static constexpr int   MAX_VALID_SPEED  = 255;
@@ -30,20 +36,7 @@ struct MotorConfig {
     static constexpr float MAX_VALID_FACTOR = 2.0f;
 };
 
-enum class Direction {
-    STOP        = 0,
-    NORTH       = 1,
-    NORTH_EAST  = 2,
-    EAST        = 3,
-    SOUTH_EAST  = 4,
-    SOUTH       = 5,
-    SOUTH_WEST  = 6,
-    WEST        = 7,
-    NORTH_WEST  = 8
-};
-
 // One DC motor driven by an L298N-style H-bridge.
-// IN1/IN2 set direction (digital); EN sets speed (PWM).
 class DCMotor {
 public:
     DCMotor(int in1Pin, int in2Pin, int enPin);
@@ -70,7 +63,7 @@ public:
                    float rightCorrection = MotorConfig::DEFAULT_RIGHT_FACTOR);
 
     void begin();
-    void drive(Direction direction, int speedLevel);
+    void drive(const DriveCommand& command);
     void stop();
 
     int getLeftSpeed()  const { return leftSpeed_; }
@@ -89,10 +82,9 @@ private:
     bool  initialized_;
 
     static int   clampSpeed(int speed);
-    static int   clampSpeedLevel(int level);
     static float clampCorrection(float factor);
 
-    void computeWheelSpeeds(Direction direction, int& left, int& right) const;
+    void computeWheelSpeeds(const DriveCommand& cmd, int& left, int& right) const;
     int  applyCorrectionAndClamp(int speed, float correction) const;
     int  applyMinimumSpeed(int speed) const;
 };

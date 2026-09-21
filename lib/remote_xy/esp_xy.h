@@ -1,8 +1,8 @@
 // esp_xy.h
 // Created on: 2025-12-23
 // Author: Sebastien Cabana
-// Description: RemoteXY integration for ESP32 controller module, 
-//              replacing Raspberry Pi and F710 gamepad while keeping 
+// Description: RemoteXY integration for ESP32 controller module,
+//              replacing Raspberry Pi and F710 gamepad while keeping
 //              same control interface.
 
 #ifndef ESP_XY_H
@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <math.h>
 #include "esp-controls.h"
+#include "motor.h"
 #include "debug_options.h"
 
 // Global Constants
@@ -25,11 +26,13 @@
 
 // RemoteXY configuration (WiFi Point / SoftAP)
 // NOTE: Must coexist with ESP-NOW which uses STA interface and a fixed channel
-#define REMOTEXY_WIFI_SSID          "ITR"
-#define REMOTEXY_WIFI_PASSWORD      "cremeuse123"
+#ifndef REMOTEXY_WIFI_SSID
+    #define REMOTEXY_WIFI_SSID          "ITR"
+    #define REMOTEXY_WIFI_PASSWORD      "cremeuse123"
+#endif
 #define REMOTEXY_SERVER_PORT        6377
 #define REMOTEXY_MODE__WIFI_POINT
-#define REMOTEXY_WIFI_CHANNEL       6               
+#define REMOTEXY_WIFI_CHANNEL       6
 #define REMOTEXY_WIFI_HIDDEN        0
 #define REMOTEXY_WIFI_MAX_CONN      1
 
@@ -44,11 +47,12 @@
 #endif
 
 // Functions Prototypes
-void xy_init();                                             // Initialize RemoteXY
-void xy_handle_remotexy();                                  // Handle RemoteXY communication
-void xy_delay(int ms);                                      // Delay function for RemoteXY
-void update_xy_data();                                      // Update esp_controls data from XY remote state
-int xy_get_joystick_zone(int x_value, int y_value);         // Convert an analog value to a discrete zone for joysticks
-ESP_Direction xy_get_direction(int x, int y);               // Get direction from x,y values
+void xy_init();                                                 // Initialize RemoteXY
+void xy_handle_remotexy();                                      // Handle RemoteXY communication
+void xy_delay(int ms);                                          // Delay function for RemoteXY
+void update_xy_data();                                          // Update esp_controls data from XY remote state
+int  xy_get_joystick_zone(int x_value, int y_value);            // Convert an analog value to a discrete zone
+ESP_Direction xy_get_direction(int x, int y);                   // Get direction from x,y values (discrete view)
+DriveCommand  xy_get_drive_command(int x_value, int y_value);   // Get polar command from x,y values (continuous view)
 
 #endif // ESP_XY_H

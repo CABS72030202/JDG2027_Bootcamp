@@ -1,12 +1,11 @@
 // motor.cpp
-// Created on: 2026-09-20
+// Created on: 2025-10-28
 // Author: Sebastien Cabana
 // Description: Implementation of DC motor control for an L298N (or similar)
 //              H-bridge driver, including a differential drive controller.
 
 #include <motor.h>
-
-constexpr int MotorConfig::SPEED_MULTIPLIERS[MotorConfig::MAX_SPEED_LEVEL];
+#include <math.h>
 
 // ============================================================================
 // DCMotor
@@ -69,28 +68,21 @@ void MotorController::begin() {
     initialized_ = true;
 }
 
-void MotorController::drive(Direction direction, int speedLevel) {
+void MotorController::drive(const DriveCommand& command) {
     if (!initialized_) {
         stop();
         return;
     }
 
-    speedLevel = clampSpeedLevel(speedLevel);
-
     int rawLeft = 0, rawRight = 0;
-    computeWheelSpeeds(direction, rawLeft, rawRight);
-
-    const int percent = MotorConfig::SPEED_MULTIPLIERS[speedLevel - 1];
-    rawLeft  = (rawLeft  * percent) / 100;
-    rawRight = (rawRight * percent) / 100;
+    computeWheelSpeeds(command, rawLeft, rawRight);
 
     leftSpeed_  = applyMinimumSpeed(applyCorrectionAndClamp(rawLeft,  leftCorrection_));
     rightSpeed_ = applyMinimumSpeed(applyCorrectionAndClamp(rawRight, rightCorrection_));
 
     if (MOTOR_DEBUG) {
-        fprintf(stderr, "[Motor] Dir=%d Lvl=%d | L=%d R=%d\n",
-                static_cast<int>(direction), speedLevel,
-                leftSpeed_, rightSpeed_);
+        fprintf(stderr, "[Motor] r=%.3f th=%.3f | L=%d R=%d\n",
+                command.magnitude, command.angle, leftSpeed_, rightSpeed_);
     }
 
     left_.setSpeed(leftSpeed_);
@@ -104,41 +96,37 @@ void MotorController::stop() {
     rightSpeed_ = 0;
 }
 
+// Differential drive mixing:
+//   forward = magnitude * cos(angle)
+//   turn    = magnitude * sin(angle)
+//   left    = forward + turn
+//   right   = forward - turn
+void MotorController::computeWheelSpeeds(const DriveCommand& cmd,
+                                         int& left, int& right) const {
+    float m = cmd.magnitude;
+    if (m < 0.0f) m = 0.0f;
+    if (m > 1.0f) m = 1.0f;
+
+    const float forward = m * cosf(cmd.angle);
+    const float turn    = m * sinf(cmd.angle);
+
+    const float leftNorm  = forward + turn;
+    const float rightNorm = forward - turn;
+
+    left  = static_cast<int>(leftNorm  * baseSpeed_);
+    right = static_cast<int>(rightNorm * baseSpeed_);
+}
+
 int MotorController::clampSpeed(int speed) {
     if (speed < MotorConfig::MIN_VALID_SPEED) return MotorConfig::MIN_VALID_SPEED;
     if (speed > MotorConfig::MAX_VALID_SPEED) return MotorConfig::MAX_VALID_SPEED;
     return speed;
 }
 
-int MotorController::clampSpeedLevel(int level) {
-    if (level < 1) return 1;
-    if (level > MotorConfig::MAX_SPEED_LEVEL) return MotorConfig::MAX_SPEED_LEVEL;
-    return level;
-}
-
 float MotorController::clampCorrection(float factor) {
     if (factor < MotorConfig::MIN_VALID_FACTOR) return MotorConfig::MIN_VALID_FACTOR;
     if (factor > MotorConfig::MAX_VALID_FACTOR) return MotorConfig::MAX_VALID_FACTOR;
     return factor;
-}
-
-void MotorController::computeWheelSpeeds(Direction direction,
-                                         int& left, int& right) const {
-    const int base   = baseSpeed_;
-    const int turnIn = static_cast<int>(base * MotorConfig::TURN_SPEED_RATIO);
-
-    switch (direction) {
-        case Direction::NORTH:       left =  base;    right =  base;    break;
-        case Direction::NORTH_EAST:  left =  turnIn;  right =  base;    break;
-        case Direction::NORTH_WEST:  left =  base;    right =  turnIn;  break;
-        case Direction::SOUTH:       left = -base;    right = -base;    break;
-        case Direction::SOUTH_EAST:  left = -turnIn;  right = -base;    break;
-        case Direction::SOUTH_WEST:  left = -base;    right = -turnIn;  break;
-        case Direction::EAST:        left = -base;    right =  base;    break;
-        case Direction::WEST:        left =  base;    right = -base;    break;
-        case Direction::STOP:
-        default:                     left =  0;       right =  0;       break;
-    }
 }
 
 int MotorController::applyCorrectionAndClamp(int speed, float correction) const {

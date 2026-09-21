@@ -55,16 +55,18 @@ typedef struct esp_button ESP_Button;
 
 struct esp_axis {
     int id;                         // Axis ID
-    int zone;                       // Current zone
-    ESP_Direction direction;        // Current direction (for sticks)
+    int zone;                       // Current zone (discrete)
+    ESP_Direction direction;        // Current direction (discrete)
     ESP_Button* associated_button;  // Pointer to associated button (if any)
+
+    // Continuous polar representation
+    float magnitude;                // ∈ [0, 1]
+    float angle;                    // ∈ (-π, π], 0 = forward
 };
 typedef struct esp_axis ESP_Axis;
 
 // Global Constants
 #define ESP_BUTTON_DEBOUNCE_MS  50      // Debounce delay in milliseconds
-
-// Global variables
 
 // Function prototypes
 std::string esp_get_direction_str(ESP_Direction dir);   // Get string representation of direction

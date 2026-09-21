@@ -1,8 +1,8 @@
 // esp_xy.cpp
 // Created on: 2025-12-23
 // Author: Sebastien Cabana
-// Description: RemoteXY integration for ESP32 controller module, 
-//              replacing Raspberry Pi and XY gamepad while keeping 
+// Description: RemoteXY integration for ESP32 controller module,
+//              replacing Raspberry Pi and XY gamepad while keeping
 //              same control interface.
 
 #include "esp_xy.h"
@@ -11,9 +11,9 @@
 #include <RemoteXY.h>
 #include <RemoteXYNet_WiFi.h>
 
-// RemoteXY GUI configuration  
-#pragma pack(push, 1)  
-uint8_t const PROGMEM RemoteXY_CONF_PROGMEM[] =   // 65 bytes V19 
+// RemoteXY GUI configuration
+#pragma pack(push, 1)
+uint8_t const PROGMEM RemoteXY_CONF_PROGMEM[] =   // 65 bytes V19
   { 255,6,0,0,0,58,0,19,0,0,0,0,20,1,200,84,1,1,5,0,
   5,20,12,60,60,32,2,26,31,1,110,8,24,24,0,12,31,0,1,110,
   52,24,24,0,2,31,0,1,154,8,24,24,0,6,31,0,1,154,52,24,
@@ -29,7 +29,7 @@ struct {
   uint8_t button_red;           // =1 if button pressed, else =0, from 0 to 1
   uint8_t connect_flag;         // =1 if wire connected, else =0
 
-} RemoteXY;   
+} RemoteXY;
 #pragma pack(pop)
 
 // RemoteXY's built-in CRemoteXYNet_WiFiPoint forces WiFi.mode(WIFI_AP)
@@ -83,9 +83,18 @@ void xy_delay(int ms) {
 }
 
 void update_xy_data() {
-    // Update axis
-    esp_get_axis(ESP_JOYSTICK)->zone = xy_get_joystick_zone(RemoteXY.joystick_x, RemoteXY.joystick_y);
-    esp_get_axis(ESP_JOYSTICK)->direction = xy_get_direction(RemoteXY.joystick_x, RemoteXY.joystick_y);
+    ESP_Axis* stick = esp_get_axis(ESP_JOYSTICK);
+    int x = RemoteXY.joystick_x;
+    int y = RemoteXY.joystick_y;
+
+    // Discrete representation
+    stick->zone      = xy_get_joystick_zone(x, y);
+    stick->direction = xy_get_direction(x, y);
+
+    // Continuous polar representation
+    DriveCommand cmd = xy_get_drive_command(x, y);
+    stick->magnitude = cmd.magnitude;
+    stick->angle     = cmd.angle;
 
     // Update buttons
     update_button(esp_get_button(ESP_BUTTON_GREEN), RemoteXY.button_green);
@@ -93,7 +102,7 @@ void update_xy_data() {
     update_button(esp_get_button(ESP_BUTTON_BLUE), RemoteXY.button_blue);
     update_button(esp_get_button(ESP_BUTTON_RED), RemoteXY.button_red);
 
-    if(ESP_PRINT_CONTROLS)
+    if (ESP_PRINT_CONTROLS)
         esp_print_states();
 }
 
@@ -114,27 +123,53 @@ ESP_Direction xy_get_direction(int x, int y) {
     int cx = x;
     int cy = -y;
 
-    if (abs(cx) < DEADZONE && abs(cy) < DEADZONE) 
+    if (abs(cx) < DEADZONE && abs(cy) < DEADZONE)
         return ESP_NONE;
 
     double angle = atan2((double)cy, (double)cx) * 180.0 / M_PI;
     if (angle < 0)
         angle += 360.0;
 
-            if (angle >= 337.5 || angle < 22.5)
-                return ESP_EAST;
-            else if (angle >= 22.5 && angle < 67.5)
-                return ESP_SOUTH_EAST;
-            else if (angle >= 67.5 && angle < 112.5)
-                return ESP_SOUTH;
-            else if (angle >= 112.5 && angle < 157.5)
-                return ESP_SOUTH_WEST;
-            else if (angle >= 157.5 && angle < 202.5)
-                return ESP_WEST;
-            else if (angle >= 202.5 && angle < 247.5)
-                return ESP_NORTH_WEST;
-            else if (angle >= 247.5 && angle < 292.5)
-                return ESP_NORTH;
-            else // angle >= 292.5 && angle < 337.5
-                return ESP_NORTH_EAST;
+    if (angle >= 337.5 || angle < 22.5)
+        return ESP_EAST;
+    else if (angle >= 22.5 && angle < 67.5)
+        return ESP_SOUTH_EAST;
+    else if (angle >= 67.5 && angle < 112.5)
+        return ESP_SOUTH;
+    else if (angle >= 112.5 && angle < 157.5)
+        return ESP_SOUTH_WEST;
+    else if (angle >= 157.5 && angle < 202.5)
+        return ESP_WEST;
+    else if (angle >= 202.5 && angle < 247.5)
+        return ESP_NORTH_WEST;
+    else if (angle >= 247.5 && angle < 292.5)
+        return ESP_NORTH;
+    else // angle >= 292.5 && angle < 337.5
+        return ESP_NORTH_EAST;
+}
+
+// Convert raw joystick (x, y) into a polar DriveCommand with 
+// magnitude ∈ [0, 1] and angle ∈ (-π, π].
+//
+// Convention:
+//   y is negated so +y = forward (matches robot frame)
+//   angle = 0 → forward, ±π/2 → turn right/left, ±π → reverse
+DriveCommand xy_get_drive_command(int x_value, int y_value) {
+    // Robot frame: +x = right, +y = forward
+    const float x =  static_cast<float>(x_value) / XY_ANAL_MAX_VAL;
+    const float y = -static_cast<float>(y_value) / XY_ANAL_MAX_VAL;
+
+    const float magnitude = sqrtf(x * x + y * y);
+
+    // Inside the deadzone → full stop
+    const float deadzone = static_cast<float>(XY_JOYSTICK_THRESHOLD) / XY_ANAL_MAX_VAL;
+    if (magnitude < deadzone)
+        return { 0.0f, 0.0f };
+
+    const float angle = atan2f(x, y);   // 0 = forward, +π/2 = right
+
+    // Clamp magnitude to 1 (diagonal can exceed 1 in the raw vector)
+    const float clamped = (magnitude > 1.0f) ? 1.0f : magnitude;
+
+    return { clamped, angle };
 }
