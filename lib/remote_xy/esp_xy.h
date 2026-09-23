@@ -18,18 +18,11 @@
 #include "motor.h"
 #include "debug_options.h"
 
-// Global Constants
-#define XY_ANAL_SHIFT_VAL           0         // Shift value for analog inputs
-#define XY_ANAL_MAX_VAL             100       // Maximum value for analog inputs
-#define XY_AXIS_ZONE_COUNT          3         // Number of axis zones (including 0)
-#define XY_JOYSTICK_THRESHOLD       10        // Threshold for joystick deadzone
-
 // RemoteXY configuration (WiFi Point / SoftAP)
 // NOTE: Must coexist with ESP-NOW which uses STA interface and a fixed channel
-#ifndef REMOTEXY_WIFI_SSID
-    #define REMOTEXY_WIFI_SSID          "ITR"
-    #define REMOTEXY_WIFI_PASSWORD      "cremeuse123"
-#endif
+#define REMOTEXY_WIFI_SSID          "EQUIPE-00"
+#define REMOTEXY_WIFI_PASSWORD      "password"      // Must be at least 8 characters
+
 #define REMOTEXY_SERVER_PORT        6377
 #define REMOTEXY_MODE__WIFI_POINT
 #define REMOTEXY_WIFI_CHANNEL       6
@@ -45,6 +38,12 @@
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
+
+// Global Constants
+#define XY_ANAL_SHIFT_VAL           0         // Shift value for analog inputs
+#define XY_ANAL_MAX_VAL             100       // Maximum value for analog inputs
+#define XY_AXIS_ZONE_COUNT          3         // Number of axis zones (including 0)
+#define XY_JOYSTICK_THRESHOLD       10        // Threshold for joystick deadzone
 
 // Functions Prototypes
 void xy_init();                                                 // Initialize RemoteXY

@@ -3,10 +3,6 @@
 // Author: Sebastien Cabana
 // Description: Main sketch for controlling simple robot with RemoteXY
 
-// RemoteXY WiFi Point configuration
-#define REMOTEXY_WIFI_SSID          "EQUIPE-00"
-#define REMOTEXY_WIFI_PASSWORD      "mdp27"
-
 // Includes
 #include <Arduino.h>
 #include "esp_xy.h"
