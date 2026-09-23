@@ -165,9 +165,9 @@ Default serial speed is set in `platformio.ini`.
 ## Running the Robot
 
 1. Power the ESP32.
-2. On your phone, connect to the Wi-Fi network `ITR`. The password is
+2. On your phone, connect to the Wi-Fi network `EQUIPE-00`. The password is
    in `lib/remote_xy/esp_xy.h`.
-3. Open the RemoteXY app and connect to the Wi-Fi network `ITR`.
+3. Open the RemoteXY app and connect to the Wi-Fi network `EQUIPE-00`.
 4. Use the virtual joystick to drive the robot:
    - Push up: forward
    - Push down: reverse
